@@ -1,67 +1,39 @@
-from app.voice_io import speak, listen
+import streamlit as st
+import speech_recognition as sr
+from gtts import gTTS
+import os
 from app.groq_api import ask_llm
 
-class VoiceInterview:
-    def __init__(self):
-        self.topics = [
-            "LLM", "NLP", "Deep Learning", "Machine Learning",
-            "Agentic AI", "PyTorch", "Python", "Data Science"
-        ]
-        self.history = []
+st.set_page_config(page_title="🤖 AI Interviewer", layout="centered")
+st.title("🎤 AI Interviewer (Cloud Edition)")
 
-    def generate_question(self):
-        topic_str = ", ".join(self.topics)
-        q_prompt = f"""
-You are an AI interviewer. Topics allowed: {topic_str}.
-Conversation history: {self.history}
+st.markdown("This AI will ask you questions on **ML, DL, NLP, LLMs, Agentic AI, PyTorch, Python, Data Science**. "
+            "Upload or record your answers, and the AI will evaluate them.")
 
-Ask ONE clear question to the user about these topics.
-Question must be maximum 15 words.
-Do not exceed 15 words.
-"""
-        question = ask_llm(q_prompt)
+# File uploader for audio input
+uploaded_audio = st.file_uploader("🎙 Upload your answer (wav/mp3)", type=["wav", "mp3"])
 
-        # Safety truncation
-        question_words = question.split()
-        if len(question_words) > 15:
-            question = " ".join(question_words[:15])
-        return question
+if uploaded_audio is not None:
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(uploaded_audio) as source:
+        audio_data = recognizer.record(source)
+        try:
+            user_answer = recognizer.recognize_google(audio_data)
+            st.success(f"🗣 You said: {user_answer}")
 
-    def evaluate_answer(self, answer):
-        eval_prompt = f"""
-User answer: {answer}
-Topics: {', '.join(self.topics)}
+            # Ask Groq LLM for evaluation
+            ai_response = ask_llm(
+                f"You are an interviewer. Evaluate this answer on ML, DL, NLP, LLMs, "
+                f"Agentic AI, PyTorch, Python, or Data Science. "
+                f"Answer in max 40 words: {user_answer}"
+            )
 
-Provide feedback in maximum 40 words:
-1. Correct points
-2. Missing/wrong points
-3. Suggestions for improvement
-Do not exceed 40 words.
-"""
-        feedback = ask_llm(eval_prompt)
+            st.info(f"🤖 AI: {ai_response}")
 
-        # Safety truncation
-        feedback_words = feedback.split()
-        if len(feedback_words) > 40:
-            feedback = " ".join(feedback_words[:40])
-        return feedback
+            # Convert AI answer to speech
+            tts = gTTS(ai_response)
+            tts.save("response.mp3")
+            st.audio("response.mp3")
 
-    def start_conversation(self, stop_callback):
-        speak(f"Hello! Welcome to your AI interview. Let's start.")
-        while True:
-            if stop_callback():
-                speak("Ending interview. Goodbye!")
-                break
-
-            question = self.generate_question()
-            speak(question)
-            print(f"AI: {question}")
-
-            answer = listen()
-            if not answer.strip():
-                continue
-
-            feedback = self.evaluate_answer(answer)
-            self.history.append({"question": question, "answer": answer, "feedback": feedback})
-            speak(feedback)
-            print(f"Feedback: {feedback}")
+        except Exception as e:
+            st.error(f"⚠️ Could not process audio: {e}")
