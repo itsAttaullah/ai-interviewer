@@ -1,9 +1,13 @@
-import sys, os
-# Ensure root directory is in Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import streamlit as st
-from app.interview import VoiceInterview
+import sys
+import os
 
+# Add the project root (where app/ folder lives) to sys.path
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, ROOT_DIR)
+
+# Now imports will work
+from app.interview import VoiceInterview
+import streamlit as st
 st.set_page_config(page_title="Voice AI Interview", layout="centered")
 
 st.title("🎙️ Voice AI Interviewer")
